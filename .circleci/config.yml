@@ -224,6 +224,7 @@ workflows:
             branches:
               ignore:
                 - gh-pages
+                - docs
                 - /^user-.*/
       - e2e-istio-testing:
           requires:
