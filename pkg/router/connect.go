@@ -47,7 +47,7 @@ func (cr *ConsulConnectRouter) updateSplitter(canary *flaggerv1.Canary, primaryW
 			consulapi.ServiceSplit{
 				Weight:        secondaryWeight,
 				Service:       apexName,
-				ServiceSubset: "secondary",
+				ServiceSubset: "canary",
 			})
 	}
 
@@ -76,7 +76,7 @@ func (cr *ConsulConnectRouter) reconcileResolver(canary *flaggerv1.Canary) error
 			"primary": {
 				Filter: "Service.ID matches \"" + primaryName + "-.+\"",
 			},
-			"secondary": {
+			"canary": {
 				Filter: "Service.ID not matches \"" + primaryName + "-.+\"",
 			},
 		},
@@ -121,7 +121,7 @@ func (cr *ConsulConnectRouter) GetRoutes(canary *flaggerv1.Canary) (
 		if split.ServiceSubset == "primary" {
 			primaryWeight = int(split.Weight)
 		}
-		if split.ServiceSubset == "secondary" {
+		if split.ServiceSubset == "canary" {
 			canaryWeight = int(split.Weight)
 		}
 	}

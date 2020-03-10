@@ -14,7 +14,7 @@ var connectQueries = map[string]string{
 		rate(
 			envoy_cluster_upstream_rq{
 				consul_service="{{ target }}",
-				consul_service_subset="secondary",
+				consul_service_subset="canary",
 				envoy_response_code!~"5.*"
 			}[{{ interval }}]
 		)
@@ -24,7 +24,7 @@ var connectQueries = map[string]string{
 		rate(
 			envoy_cluster_upstream_rq{
 				consul_service="{{ target }}",
-				consul_service_subset="secondary"
+				consul_service_subset="canary"
 			}[{{ interval }}]
 		)
 	) 
@@ -36,7 +36,7 @@ var connectQueries = map[string]string{
 			rate(
 				envoy_cluster_upstream_rq_time_bucket{
 					consul_service="{{ target }}",
-					consul_service_subset="secondary"
+					consul_service_subset="canary"
 				}[{{ interval }}]
 			)
 		) by (le)
