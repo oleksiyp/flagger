@@ -140,7 +140,8 @@ func main() {
 
 	var consulClient *consulapi.Client
 	if enableConsulClient {
-		consulClient, err = consulapi.NewClient(consulapi.DefaultConfig())
+		config := consulapi.DefaultConfig()
+		consulClient, err = consulapi.NewClient(config)
 		if err != nil {
 			logger.Fatalf("Error building consul client: %v", err)
 		}
@@ -177,7 +178,15 @@ func main() {
 	// start HTTP server
 	go server.ListenAndServe(port, 3*time.Second, logger, stopCh)
 
-	routerFactory := router.NewFactory(cfg, kubeClient, flaggerClient, ingressAnnotationsPrefix, logger, meshClient, consulClient)
+	routerFactory := router.NewFactory(
+		cfg,
+		kubeClient,
+		flaggerClient,
+		ingressAnnotationsPrefix,
+		logger,
+		meshClient,
+		consulClient,
+	)
 
 	var configTracker canary.Tracker
 	if enableConfigTracking {

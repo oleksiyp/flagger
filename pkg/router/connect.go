@@ -2,7 +2,6 @@ package router
 
 import (
 	"fmt"
-
 	consulapi "github.com/hashicorp/consul/api"
 	flaggerv1 "github.com/weaveworks/flagger/pkg/apis/flagger/v1beta1"
 	clientset "github.com/weaveworks/flagger/pkg/client/clientset/versioned"
@@ -21,6 +20,11 @@ type ConsulConnectRouter struct {
 // Reconcile creates or updates the Consul Connect resolver
 func (cr *ConsulConnectRouter) Reconcile(canary *flaggerv1.Canary) error {
 	err := cr.reconcileResolver(canary)
+	if err != nil {
+		return err
+	}
+
+	err = cr.reconcileSplitter(canary)
 	if err != nil {
 		return err
 	}
@@ -68,6 +72,15 @@ func (cr *ConsulConnectRouter) updateSplitter(canary *flaggerv1.Canary, primaryW
 func (cr *ConsulConnectRouter) reconcileResolver(canary *flaggerv1.Canary) error {
 	apexName, primaryName, _ := canary.GetServiceNames()
 
+	dcs, err := cr.consulClient.Catalog().Datacenters()
+	if err != nil {
+		cr.logger.Warnf("Failed to fetch dc list %v", err)
+		dcs = make([]string, 0)
+	}
+	if len(dcs) >= 1 {
+		dcs = dcs[1:]
+	}
+
 	resolver := &consulapi.ServiceResolverConfigEntry{
 		Kind:          consulapi.ServiceResolver,
 		Name:          apexName,
@@ -82,6 +95,21 @@ func (cr *ConsulConnectRouter) reconcileResolver(canary *flaggerv1.Canary) error
 		},
 	}
 
+	if len(dcs) > 0 {
+		resolver.Failover = make(map[string]consulapi.ServiceResolverFailover)
+		resolver.Failover["primary"] = consulapi.ServiceResolverFailover{
+			Service:       apexName,
+			ServiceSubset: "primary",
+			Datacenters:   dcs,
+		}
+
+		resolver.Failover["canary"] = consulapi.ServiceResolverFailover{
+			Service:       apexName,
+			ServiceSubset: "canary",
+			Datacenters:   dcs,
+		}
+	}
+
 	result, _, err := cr.consulClient.ConfigEntries().Set(resolver, nil)
 	if err != nil {
 		return fmt.Errorf("Failure during creation of service resolver %s.%s error: %w", apexName, canary.Namespace, err)
@@ -91,6 +119,19 @@ func (cr *ConsulConnectRouter) reconcileResolver(canary *flaggerv1.Canary) error
 		return fmt.Errorf("Not able to create service resolver %s.%s", apexName, canary.Namespace)
 	}
 
+	return nil
+}
+
+func (cr *ConsulConnectRouter) reconcileSplitter(canary *flaggerv1.Canary) error {
+	apexName, _, _ := canary.GetServiceNames()
+
+	_, _, err := cr.consulClient.ConfigEntries().Get(consulapi.ServiceSplitter, apexName, nil)
+	if err != nil {
+		err = cr.updateSplitter(canary, 100.0, 0.0)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -111,7 +152,6 @@ func (cr *ConsulConnectRouter) GetRoutes(canary *flaggerv1.Canary) (
 	}
 
 	readSplitter, ok := entry.(*consulapi.ServiceSplitterConfigEntry)
-
 	if !ok {
 		err = fmt.Errorf("Bad service splitter %s.%s", apexName, canary.Namespace)
 		return

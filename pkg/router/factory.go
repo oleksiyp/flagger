@@ -26,7 +26,8 @@ func NewFactory(kubeConfig *restclient.Config, kubeClient kubernetes.Interface,
 	ingressAnnotationsPrefix string,
 	logger *zap.SugaredLogger,
 	meshClient clientset.Interface,
-	consulClient *consulapi.Client) *Factory {
+	consulClient *consulapi.Client,
+) *Factory {
 	return &Factory{
 		kubeConfig:               kubeConfig,
 		meshClient:               meshClient,
@@ -140,10 +141,10 @@ func (factory *Factory) MeshRouter(provider string) Interface {
 		}
 	case provider == "connect" && factory.consulClient != nil:
 		return &ConsulConnectRouter{
-			logger:        factory.logger,
-			flaggerClient: factory.flaggerClient,
-			kubeClient:    factory.kubeClient,
-			consulClient:  factory.consulClient,
+			logger:              factory.logger,
+			flaggerClient:       factory.flaggerClient,
+			kubeClient:          factory.kubeClient,
+			consulClient:        factory.consulClient,
 		}
 	default:
 		return &IstioRouter{
